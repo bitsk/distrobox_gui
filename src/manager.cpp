@@ -99,6 +99,21 @@ bool DistroboxManager::installDistrobox() {
     return installed;
 }
 
+QVariantList DistroboxManager::getContainersVariant() {
+    QList<Container> containers = getContainers();
+    QVariantList list;
+    for (const auto &c : containers) {
+        QVariantMap map;
+        map["id"] = c.id;
+        map["name"] = c.name;
+        map["status"] = c.status;
+        map["image"] = c.image;
+        map["isRunning"] = c.status.toLower().contains("up") || c.status.toLower().contains("running");
+        list.append(map);
+    }
+    return list;
+}
+
 QList<Container> DistroboxManager::getContainers() {
     if (!isDistroboxInstalled()) {
         return {};
@@ -159,6 +174,10 @@ QList<Container> DistroboxManager::parseTextOutput(const QString &output) {
     return containers;
 }
 
+#include <QThread>
+
+// ... (existing code)
+
 QString DistroboxManager::getIconName(const QString &imageName) {
     QString lowerName = imageName.toLower();
     if (lowerName.contains("openkylin") || lowerName.contains("kylin")) return "openkylin";
@@ -172,14 +191,137 @@ QString DistroboxManager::getIconName(const QString &imageName) {
     return "linux-generic";
 }
 
-bool DistroboxManager::createBox(const QString &name, const QString &image, const QString &homePath, const QString &volume, bool root) {
-    QStringList args;
-    args << "create" << "-n" << name << "-i" << image << "-Y";
-    if (!homePath.isEmpty()) args << "--home" << homePath;
-    if (!volume.isEmpty()) args << "--volume" << volume;
-    if (root) args << "--root";
+void DistroboxManager::createBox(const QString &name, const QString &image, const QString &homePath, const QString &volume, bool root, const QVariantMap &extraParams) {
+    QThread *thread = QThread::create([=]() {
+        QStringList args;
+        args << "create" << "-n" << name << "-i" << image << "-Y";
+        if (!homePath.isEmpty()) args << "--home" << homePath;
+        if (!volume.isEmpty()) args << "--volume" << volume;
+        if (root) args << "--root";
+        
+        // Handle extra params
+        if (extraParams.value("init").toBool()) args << "--init";
+        if (extraParams.value("nvidia").toBool()) args << "--nvidia";
+        
+        QString platform = extraParams.value("platform").toString();
+        if (!platform.isEmpty()) args << "--platform" << platform;
+        
+        QString packages = extraParams.value("packages").toString();
+        if (!packages.isEmpty()) args << "--additional-packages" << packages;
+        
+        QString flags = extraParams.value("flags").toString();
+        if (!flags.isEmpty()) {
+            // Split flags by space but respect quotes? Simple split for now.
+            // Distrobox expects one --additional-flags argument or multiple?
+            // "additional flags to pass to the container manager command"
+            // Usually passed as one string: --additional-flags "--env foo=bar"
+            args << "--additional-flags" << flags;
+        }
 
-    return QProcess::execute("distrobox", args) == 0;
+        QProcess process;
+        process.start("distrobox", args);
+        process.waitForFinished(-1); // Wait indefinitely
+
+        bool success = (process.exitCode() == 0);
+        QString message = success ? "Creation successful" : QString::fromUtf8(process.readAllStandardError());
+        
+        emit createBoxFinished(success, message);
+    });
+    
+    // Auto-delete thread when finished
+    connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    thread->start();
+}
+
+void DistroboxManager::cloneBox(const QString &name, const QString &newName) {
+    QThread *thread = QThread::create([=]() {
+        QStringList args;
+        args << "create" << "--clone" << name << "--name" << newName << "-Y";
+
+        QProcess process;
+        process.start("distrobox", args);
+        process.waitForFinished(-1);
+
+        bool success = (process.exitCode() == 0);
+        QString message = success ? "Clone successful" : QString::fromUtf8(process.readAllStandardError());
+        
+        emit actionFinished(success, message);
+    });
+    connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    thread->start();
+}
+
+// Re-implementing upgradeBox to launch terminal
+/* 
+   Wait, if I change the signature in .h to just launch terminal, it returns void. 
+   But I already declared it. Let's make it launch terminal.
+*/
+void DistroboxManager::upgradeBox(const QString &name) {
+    // Similar to enterBox but runs upgrade
+    // List of terminals to try (reuse code or refactor? For now duplicate for safety/speed)
+    QStringList terminals = {
+        "kylin-terminal", "mate-terminal", "gnome-terminal", "xfce4-terminal", 
+        "terminator", "deepin-terminal", "qterminal",
+        "tilix", "konsole", "alacritty", "xterm", "kitty", "foot"
+    };
+    
+    QString foundTerminal;
+    for (const QString &term : terminals) {
+        QProcess which;
+        which.start("which", QStringList() << term);
+        which.waitForFinished();
+        if (which.exitCode() == 0) {
+            foundTerminal = term;
+            break;
+        }
+    }
+    
+    if (foundTerminal.isEmpty()) return;
+    
+    QStringList cmd;
+    cmd << "distrobox" << "upgrade" << name; // This runs upgrade script
+    QString flatCmd = cmd.join(" ");
+    QString shellCmd = QString("%1; echo 'Upgrade finished.'; read -p 'Press Enter to close...' var;").arg(flatCmd);
+    
+    QStringList finalCmd;
+    finalCmd << foundTerminal;
+    
+    if (foundTerminal.contains("gnome") || foundTerminal.contains("mate") || 
+        foundTerminal.contains("xfce") || foundTerminal == "tilix") {
+        finalCmd << "--";
+    } else if (foundTerminal == "konsole" || foundTerminal == "alacritty" || foundTerminal == "xterm") {
+        finalCmd << "-e";
+    }
+    
+    finalCmd << "bash" << "-c" << shellCmd;
+    QProcess::startDetached(finalCmd.first(), finalCmd.mid(1));
+}
+
+void DistroboxManager::exportApp(const QString &name, const QString &app, bool isBinary) {
+    QThread *thread = QThread::create([=]() {
+        // Command: distrobox enter name -- distrobox-export --app/--bin app
+        QStringList args;
+        args << "enter" << name << "--" << "distrobox-export";
+        if (isBinary) {
+            args << "--bin" << app << "--export-path" << QDir::homePath() + "/.local/bin";
+        } else {
+            args << "--app" << app;
+        }
+
+        QProcess process;
+        process.start("distrobox", args);
+        process.waitForFinished(-1);
+
+        bool success = (process.exitCode() == 0);
+        // Capture stdout/stderr
+        QString output = QString::fromUtf8(process.readAllStandardOutput());
+        QString err = QString::fromUtf8(process.readAllStandardError());
+        QString message = success ? ("Export successful: " + output) : ("Export failed: " + err);
+        
+        emit actionFinished(success, message);
+    });
+    connect(thread, &QThread::finished, thread, &QObject::deleteLater);
+    thread->start();
 }
 
 bool DistroboxManager::stopBox(const QString &name) {
@@ -190,6 +332,53 @@ bool DistroboxManager::deleteBox(const QString &name) {
     return QProcess::execute("distrobox", QStringList() << "rm" << name << "-Y") == 0;
 }
 
-QStringList DistroboxManager::enterBoxCommand(const QString &name) {
-    return QStringList() << "distrobox" << "enter" << name;
+void DistroboxManager::enterBox(const QString &name) {
+    // List of terminals to try
+    QStringList terminals = {
+        "kylin-terminal", "mate-terminal", "gnome-terminal", "xfce4-terminal", 
+        "terminator", "deepin-terminal", "qterminal",
+        "tilix", "konsole", "alacritty", "xterm", "kitty", "foot"
+    };
+    
+    QString foundTerminal;
+    for (const QString &term : terminals) {
+        QProcess which;
+        which.start("which", QStringList() << term);
+        which.waitForFinished();
+        if (which.exitCode() == 0) {
+            foundTerminal = term;
+            break;
+        }
+    }
+    
+    if (foundTerminal.isEmpty()) {
+        qDebug() << "No supported terminal found.";
+        return;
+    }
+    
+    // Build command
+    QStringList cmd;
+    cmd << "distrobox" << "enter" << name;
+    QString flatCmd = cmd.join(" ");
+    QString shellCmd = QString("%1 || { echo 'Command failed.'; read -p 'Press Enter to close...' var; }").arg(flatCmd);
+    
+    QStringList finalCmd;
+    finalCmd << foundTerminal;
+    
+    // Add terminal-specific flags
+    if (foundTerminal.contains("gnome") || foundTerminal.contains("mate") || 
+        foundTerminal.contains("xfce") || foundTerminal == "tilix") {
+        finalCmd << "--";
+    } else if (foundTerminal == "konsole" || foundTerminal == "alacritty" || foundTerminal == "xterm") {
+        finalCmd << "-e";
+    }
+    
+    finalCmd << "bash" << "-c" << shellCmd;
+    
+    qDebug() << "Launching terminal:" << finalCmd;
+    QProcess::startDetached(finalCmd.first(), finalCmd.mid(1));
+}
+
+QString DistroboxManager::getSystemArch() {
+    return QSysInfo::currentCpuArchitecture();
 }

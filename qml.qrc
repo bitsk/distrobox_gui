@@ -1,0 +1,18 @@
+<RCC>
+    <qresource prefix="/">
+        <file>ui/main.qml</file>
+        <file>ui/ContainerCard.qml</file>
+        <file>ui/CreateDialog.qml</file>
+        <file>ui/CloneDialog.qml</file>
+        <file>ui/ExportDialog.qml</file>
+        <file>ui/MessageDialog.qml</file>
+        <file>assets/icons/ubuntu.svg</file>
+        <file>assets/icons/fedora.svg</file>
+        <file>assets/icons/arch.svg</file>
+        <file>assets/icons/debian.svg</file>
+        <file>assets/icons/openkylin.svg</file>
+        <file>assets/icons/alpine.svg</file>
+        <file>assets/icons/kali.svg</file>
+        <file>assets/icons/linux.svg</file>
+    </qresource>
+</RCC>

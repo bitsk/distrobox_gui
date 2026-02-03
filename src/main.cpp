@@ -1,39 +1,29 @@
-#include "mainwindow.h"
-#include <QApplication>
-#include <QLocale>
-#include <QTranslator>
-#include <QDebug>
+#include <QGuiApplication>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+#include <QIcon>
+#include "manager.h"
 
 int main(int argc, char *argv[]) {
-    // Enable high DPI scaling
     QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-    
-    QApplication app(argc, argv);
+
+    QGuiApplication app(argc, argv);
     app.setApplicationName("kylin-distrobox");
-    app.setApplicationDisplayName("Kylin Distrobox 管理器");
-    app.setDesktopFileName("kylin-distrobox");
+    app.setOrganizationName("Kylin");
+    app.setWindowIcon(QIcon::fromTheme("applications-system"));
 
-    qDebug() << "Starting Kylin Distrobox application";
+    qmlRegisterType<DistroboxManager>("Distrobox", 1, 0, "DistroboxManager");
+
+    QQmlApplicationEngine engine;
+    const QUrl url(QStringLiteral("qrc:/ui/main.qml"));
     
-#ifdef USE_KYLIN_SDK
-    qDebug() << "Using OpenKylin SDK (KWidget)";
-#else
-    qDebug() << "Using standard Qt5 widgets";
-#endif
-
-    // Translation loading logic (suggested by OpenKylin SDK docs)
-    QTranslator trans;
-    QString locale = QLocale::system().name();
-    if(locale == "zh_CN") {
-        if(trans.load(":/translations/gui_zh_CN.qm")) {
-            app.installTranslator(&trans);
-        }
-    }
-
-    MainWindow window;
-    qDebug() << "MainWindow created, showing window...";
-    window.show();
-    qDebug() << "Window shown, entering event loop";
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
+                     &app, [url](QObject *obj, const QUrl &objUrl) {
+        if (!obj && url == objUrl)
+            QCoreApplication::exit(-1);
+    }, Qt::QueuedConnection);
+    
+    engine.load(url);
 
     return app.exec();
 }
