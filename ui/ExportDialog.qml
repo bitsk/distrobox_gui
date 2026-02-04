@@ -45,17 +45,10 @@ Dialog {
             font.bold: true
         }
         
-        TextField {
+        UKUITextField {
             id: appInput
             Layout.fillWidth: true
             placeholderText: "应用名称 (如: code) 或 路径"
-            placeholderTextColor: "#5c6370"
-            color: "white"
-            background: Rectangle {
-                color: "#21252b"
-                border.color: parent.activeFocus ? "#61afef" : "#3e4451"
-                radius: 6
-            }
             selectByMouse: true
         }
         
@@ -84,22 +77,15 @@ Dialog {
         spacing: 10
         background: Rectangle { color: "#2c313c"; radius: 8 }
         
-        Button {
+        UKUIButton {
             text: "取消"
             DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
-            background: Rectangle { color: "transparent"; radius: 6 }
-            contentItem: Text { text: parent.text; color: "#abb2bf"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
         }
         
-        Button {
+        UKUIButton {
             text: "导出"
             DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
             enabled: appInput.text !== ""
-            background: Rectangle {
-                color: parent.enabled ? (parent.down ? "#528bca" : "#61afef") : "#3e4451"
-                radius: 6
-            }
-            contentItem: Text { text: parent.text; color: parent.enabled ? "white" : "#5c6370"; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
         }
     }
 }

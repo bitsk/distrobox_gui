@@ -3,6 +3,8 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Window 2.15
 import Distrobox 1.0
+import org.ukui.quick.items 1.0
+import org.ukui.quick.platform 1.0
 
 ApplicationWindow {
     id: window
@@ -11,13 +13,7 @@ ApplicationWindow {
     height: 600
     title: "Kylin 开发环境管理器"
     
-    // Define a dark theme palette
-    property color bgDark: "#282c34"
-    property color bgLight: "#2c313c"
-    property color accent: "#61afef"
-    property color textPrimary: "#abb2bf"
-    
-    color: bgDark
+    color: GlobalTheme.windowActive.pureColor
     
     DistroboxManager {
         id: manager
@@ -48,7 +44,10 @@ ApplicationWindow {
     }
     
     header: ToolBar {
-        background: Rectangle { color: bgLight }
+        background: DtThemeBackground {
+            backgroundColor: GlobalTheme.baseActive
+            border.width: 0
+        }
         RowLayout {
             anchors.fill: parent
             spacing: 15
@@ -59,29 +58,18 @@ ApplicationWindow {
                 background: null
             }
             
-            Label {
+            DtThemeText {
                 text: "开发环境管理器"
                 font.pixelSize: 20
                 font.bold: true
-                color: textPrimary
+                textColor: GlobalTheme.textActive
             }
             
             Item { Layout.fillWidth: true }
             
-            Button {
+            UKUIButton {
                 text: "🔄 刷新"
                 onClicked: refreshContainers()
-                background: Rectangle {
-                    color: parent.down ? Qt.darker("#3e4451") : "#3e4451"
-                    radius: 6
-                }
-                contentItem: Text {
-                    text: parent.text
-                    color: "white"
-                    font.bold: true
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
             }
         }
     }
@@ -101,11 +89,11 @@ ApplicationWindow {
                 anchors.fill: parent
                 anchors.margins: 15
                 
-                Label {
+                DtThemeText {
                     text: "正在运行的环境"
                     font.pixelSize: 16
                     font.bold: true
-                    color: textPrimary
+                    textColor: GlobalTheme.textActive
                 }
                 
                 ScrollView {
@@ -163,67 +151,96 @@ ApplicationWindow {
                 anchors.fill: parent
                 anchors.margins: 15
                 
-                Label {
+                DtThemeText {
                     text: "新建开发环境"
                     font.pixelSize: 16
                     font.bold: true
-                    color: "#ff8c42"
+                    textColor: GlobalTheme.kBrandNormal
                 }
                 
-                GridView {
-                    id: distroGrid
+                ScrollView {
+                    id: scroll
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    cellWidth: 120
-                    cellHeight: 140
                     clip: true
-                    model: distroModel
                     
-                    delegate: Item {
-                        width: distroGrid.cellWidth
-                        height: distroGrid.cellHeight
+                    Column {
+                        width: scroll.availableWidth
+                        spacing: 20
+                        padding: 5
                         
-                        Rectangle {
-                            anchors.fill: parent
-                            anchors.margins: 5
-                            color: "transparent"
-                            border.color: "#ff8c42"
-                            border.width: 2
-                            radius: 12
-                            
-                            MouseArea {
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                onEntered: parent.color = Qt.rgba(255, 140, 66, 0.1)
-                                onExited: parent.color = "transparent"
-                                onClicked: {
-                                    createDialog.distroImage = modelData.image
-                                    // Extract names from containerModel
-                                    var names = []
-                                    for (var i = 0; i < containerModel.length; i++) {
-                                        names.push(containerModel[i].name)
+                        Repeater {
+                            model: distroModel
+                            delegate: Column {
+                                width: scroll.availableWidth
+                                spacing: 10
+                                
+                                DtThemeText {
+                                    text: modelData.category
+                                    font.pixelSize: 14
+                                    font.bold: true
+                                    textColor: GlobalTheme.textActive
+                                    opacity: 0.8
+                                    width: parent.width
+                                }
+                                
+                                Flow {
+                                    width: parent.width
+                                    spacing: 12
+                                    
+                                    Repeater {
+                                        model: modelData.items
+                                        delegate: Item {
+                                            width: 120
+                                            height: 140
+                                            
+                                            MouseArea {
+                                                id: gridItemMouseArea
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                                onClicked: {
+                                                    createDialog.distroImage = modelData.image
+                                                    // Extract names from containerModel
+                                                    var names = []
+                                                    for (var i = 0; i < containerModel.length; i++) {
+                                                        names.push(containerModel[i].name)
+                                                    }
+                                                    createDialog.existingNames = names
+                                                    createDialog.open()
+                                                }
+                                            }
+
+                                            DtThemeBackground {
+                                                anchors.fill: parent
+                                                anchors.margins: 5
+                                                radius: 12
+                                                border.width: 2
+                                                backgroundColor: gridItemMouseArea.containsMouse ? GlobalTheme.kBrandHover : GlobalTheme.kComponentNormal
+                                                borderColor: gridItemMouseArea.containsMouse ? GlobalTheme.kBrandNormal : GlobalTheme.kLineNormal
+                                                
+                                                ColumnLayout {
+                                                    anchors.centerIn: parent
+                                                    spacing: 5
+                                                    
+                                                    Image {
+                                                        source: modelData.icon
+                                                        sourceSize.width: 48
+                                                        sourceSize.height: 48
+                                                        Layout.alignment: Qt.AlignHCenter
+                                                    }
+                                                    
+                                                    DtThemeText {
+                                                        text: modelData.name
+                                                        textColor: GlobalTheme.textActive
+                                                        font.pixelSize: 12
+                                                        Layout.alignment: Qt.AlignHCenter
+                                                        elide: Text.ElideRight
+                                                        Layout.maximumWidth: 100
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
-                                    createDialog.existingNames = names
-                                    createDialog.open()
-                                }
-                            }
-                            
-                            ColumnLayout {
-                                anchors.centerIn: parent
-                                spacing: 5
-                                
-                                Image {
-                                    source: modelData.icon
-                                    sourceSize.width: 48
-                                    sourceSize.height: 48
-                                    Layout.alignment: Qt.AlignHCenter
-                                }
-                                
-                                Text {
-                                    text: modelData.name
-                                    color: textPrimary
-                                    font.pixelSize: 12
-                                    Layout.alignment: Qt.AlignHCenter
                                 }
                             }
                         }
@@ -240,32 +257,42 @@ ApplicationWindow {
     function updateDistroList() {
         var arch = manager.getSystemArch()
         console.log("System Architecture: " + arch)
-        var list = []
         
+        var basicItems = []
         // Add Custom option first
-        list.push({name: "自定义", image: "", icon: "qrc:/assets/icons/linux.svg"})
+        basicItems.push({name: "自定义", image: "", icon: "qrc:/assets/icons/linux.svg"})
         
         if (arch === "riscv64") {
-            // RISC-V specific list
-            list.push({name: "Ubuntu", image: "ubuntu:latest", icon: "qrc:/assets/icons/ubuntu.svg"})
-            list.push({name: "Fedora", image: "fedorariscv/base:latest", icon: "qrc:/assets/icons/fedora.svg"}) // Special image
-            list.push({name: "Arch", image: "riscfive/archlinux:latest", icon: "qrc:/assets/icons/arch.svg"}) // Added RISC-V specific Arch
-            list.push({name: "Debian", image: "debian:stable", icon: "qrc:/assets/icons/debian.svg"})
-            list.push({name: "openKylin", image: "openkylin/openkylin:2.0", icon: "qrc:/assets/icons/openkylin.svg"})
-            list.push({name: "Alpine", image: "alpine:latest", icon: "qrc:/assets/icons/alpine.svg"})
-            // Removed Kali, Ubuntu 22.04
-            list.push({name: "Ubuntu 24.04", image: "ubuntu:24.04", icon: "qrc:/assets/icons/ubuntu.svg"}) // Added 24.04
+            basicItems.push({name: "Ubuntu", image: "ubuntu:latest", icon: "qrc:/assets/icons/ubuntu.svg"})
+            basicItems.push({name: "Fedora", image: "fedorariscv/base:latest", icon: "qrc:/assets/icons/fedora.svg"})
+            basicItems.push({name: "Arch", image: "riscfive/archlinux:latest", icon: "qrc:/assets/icons/arch.svg"})
+            basicItems.push({name: "Debian", image: "debian:stable", icon: "qrc:/assets/icons/debian.svg"})
+            basicItems.push({name: "openKylin", image: "openkylin/openkylin:2.0", icon: "qrc:/assets/icons/openkylin.svg"})
         } else {
-            // Standard list
-            list.push({name: "Ubuntu", image: "ubuntu:latest", icon: "qrc:/assets/icons/ubuntu.svg"})
-            list.push({name: "Fedora", image: "fedora:latest", icon: "qrc:/assets/icons/fedora.svg"})
-            list.push({name: "Arch", image: "archlinux:latest", icon: "qrc:/assets/icons/arch.svg"})
-            list.push({name: "Debian", image: "debian:stable", icon: "qrc:/assets/icons/debian.svg"})
-            list.push({name: "openKylin", image: "openkylin/openkylin:2.0", icon: "qrc:/assets/icons/openkylin.svg"})
-            list.push({name: "Alpine", image: "alpine:latest", icon: "qrc:/assets/icons/alpine.svg"})
-            list.push({name: "Kali", image: "kalilinux/kali-rolling", icon: "qrc:/assets/icons/kali.svg"})
-            list.push({name: "Ubuntu 22.04", image: "ubuntu:22.04", icon: "qrc:/assets/icons/ubuntu.svg"})
+            basicItems.push({name: "Ubuntu", image: "ubuntu:latest", icon: "qrc:/assets/icons/ubuntu.svg"})
+            basicItems.push({name: "Fedora", image: "fedora:latest", icon: "qrc:/assets/icons/fedora.svg"})
+            basicItems.push({name: "Arch", image: "archlinux:latest", icon: "qrc:/assets/icons/arch.svg"})
+            basicItems.push({name: "Debian", image: "debian:stable", icon: "qrc:/assets/icons/debian.svg"})
+            basicItems.push({name: "openKylin", image: "openkylin/openkylin:2.0", icon: "qrc:/assets/icons/openkylin.svg"})
+            basicItems.push({name: "Kali", image: "kalilinux/kali-rolling", icon: "qrc:/assets/icons/kali.svg"})
+            basicItems.push({name: "Ubuntu 22.04", image: "ubuntu:22.04", icon: "qrc:/assets/icons/ubuntu.svg"})
         }
+        
+        var cloudItems = []
+        cloudItems.push({name: "Alpine", image: "alpine:latest", icon: "qrc:/assets/icons/alpine.svg"})
+        cloudItems.push({name: "Rocky Linux", image: "rockylinux:9", icon: "qrc:/assets/icons/linux.svg"})
+        cloudItems.push({name: "AlmaLinux", image: "almalinux:9", icon: "qrc:/assets/icons/linux.svg"})
+        cloudItems.push({name: "CentOS Stream", image: "quay.io/centos/centos:stream9", icon: "qrc:/assets/icons/linux.svg"})
+
+        var aiItems = []
+        aiItems.push({name: "PyTorch", image: "pytorch/pytorch:latest", icon: "qrc:/assets/icons/linux.svg"})
+        aiItems.push({name: "TensorFlow", image: "tensorflow/tensorflow:latest", icon: "qrc:/assets/icons/linux.svg"})
+        
+        var list = []
+        list.push({category: "基础发行版", items: basicItems})
+        list.push({category: "云原生 & 服务器", items: cloudItems})
+        list.push({category: "AI & 深度学习", items: aiItems})
+        
         distroModel = list
     }
     

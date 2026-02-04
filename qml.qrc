@@ -6,6 +6,8 @@
         <file>ui/CloneDialog.qml</file>
         <file>ui/ExportDialog.qml</file>
         <file>ui/MessageDialog.qml</file>
+        <file>ui/UKUIButton.qml</file>
+        <file>ui/UKUITextField.qml</file>
         <file>assets/icons/ubuntu.svg</file>
         <file>assets/icons/fedora.svg</file>
         <file>assets/icons/arch.svg</file>

@@ -10,19 +10,16 @@ Dialog {
     modal: true
     dim: true
     
-    // Position in center of application
     parent: Overlay.overlay
     x: Math.round((parent.width - width) / 2)
     y: Math.round((parent.height - height) / 2)
     
-    // Custom Background
     background: Rectangle {
         color: "#2c313c"
         border.color: "#3e4451"
         radius: 8
     }
     
-    // Custom Header with Drag Support
     header: Rectangle {
         color: "#2c313c"
         height: 60
@@ -53,43 +50,23 @@ Dialog {
         }
     }
     
-    // Custom Footer (Buttons)
     footer: DialogButtonBox {
         alignment: Qt.AlignRight
         padding: 20
         spacing: 10
         background: Rectangle { color: "#2c313c"; radius: 8 }
         
-        Button {
+        UKUIButton {
             text: "取消"
             DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
-            background: Rectangle {
-                color: "transparent"
-                border.color: "#3e4451"
-                radius: 6
-            }
-            contentItem: Text {
-                text: parent.text
-                color: "#abb2bf"
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-            }
         }
         
-        Button {
+        UKUIButton {
             text: "创建"
+            enabled: nameInput.text.length > 0 && 
+                     existingNames.indexOf(nameInput.text) === -1 &&
+                     /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/.test(nameInput.text)
             DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
-            background: Rectangle {
-                color: parent.down ? "#528bca" : "#61afef"
-                radius: 6
-            }
-            contentItem: Text {
-                text: parent.text
-                color: "white"
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-            }
         }
     }
     
@@ -98,7 +75,6 @@ Dialog {
     property string finalImage: imageInput.text
     property var existingNames: []
     
-    // New properties
     property bool useInit: initCheck.checked
     property bool useNvidia: nvidiaCheck.checked
     property string platform: platformInput.text
@@ -119,7 +95,13 @@ Dialog {
     }
     
     function generateUniqueName(baseName) {
-// ... (rest of function)
+        var name = baseName
+        var counter = 1
+        while (existingNames.indexOf(name) !== -1) {
+            name = baseName + "-" + counter
+            counter++
+        }
+        return name
     }
     
     onOpened: {
@@ -128,7 +110,8 @@ Dialog {
             imageInput.enabled = false
             var parts = distroImage.split(":")
             var base = parts[0].split("/").pop()
-            var baseName = "my-" + base.replace(" ", "-")
+            // Ensure base name is valid (replace non-allowed chars with -)
+            var baseName = "my-" + base.replace(/[^a-zA-Z0-9_.-]/g, "-")
             nameInput.text = generateUniqueName(baseName)
         } else {
             imageInput.text = ""
@@ -137,7 +120,6 @@ Dialog {
             var baseName = "my-custom-container"
             nameInput.text = generateUniqueName(baseName)
         }
-        // Reset advanced fields
         initCheck.checked = false
         nvidiaCheck.checked = false
         platformInput.text = ""
@@ -148,7 +130,6 @@ Dialog {
         rootCheck.checked = false
     }
     
-    // Content with ScrollView to prevent overflow
     contentItem: ScrollView {
         id: scroll
         clip: true
@@ -166,16 +147,50 @@ Dialog {
                 Layout.topMargin: 10
             }
             
-            // Basic
-            TextField { id: imageInput; Layout.fillWidth: true; placeholderText: "镜像名称"; placeholderTextColor: "#5c6370"; color: "white"; visible: true; background: Rectangle { color: "#21252b"; border.color: parent.activeFocus ? "#61afef" : "#3e4451"; radius: 6 } selectByMouse: true }
-            TextField { id: nameInput; Layout.fillWidth: true; placeholderText: "容器名称"; placeholderTextColor: "#5c6370"; color: "white"; background: Rectangle { color: "#21252b"; border.color: parent.activeFocus ? "#61afef" : "#3e4451"; radius: 6 } selectByMouse: true }
+    UKUITextField { id: imageInput; Layout.fillWidth: true; placeholderText: "镜像名称"; visible: true; selectByMouse: true }
+            UKUITextField { 
+                id: nameInput
+                Layout.fillWidth: true
+                placeholderText: "容器名称"
+                selectByMouse: true
+                onTextChanged: {
+                    if (text.length > 0) {
+                        text = text.replace(/[^a-zA-Z0-9_.-]/g, "")
+                    }
+                }
+            }
             
-            // Storage
-            Label { text: "存储配置"; font.bold: true; color: "#e06c75"; font.pixelSize: 12 }
-            TextField { id: homeInput; Layout.fillWidth: true; placeholderText: "自定义 Home (可选)"; placeholderTextColor: "#5c6370"; color: "white"; background: Rectangle { color: "#21252b"; border.color: parent.activeFocus ? "#61afef" : "#3e4451"; radius: 6 } selectByMouse: true }
-            TextField { id: volumeInput; Layout.fillWidth: true; placeholderText: "挂载卷 (宿主:容器)"; placeholderTextColor: "#5c6370"; color: "white"; background: Rectangle { color: "#21252b"; border.color: parent.activeFocus ? "#61afef" : "#3e4451"; radius: 6 } selectByMouse: true }
+            ColumnLayout {
+                spacing: 2
+                Layout.fillWidth: true
+                visible: nameInput.text.length === 0 || existingNames.indexOf(nameInput.text) !== -1 || !/^[a-zA-Z0-9]/.test(nameInput.text)
+                
+                Label {
+                    visible: nameInput.text.length > 0 && existingNames.indexOf(nameInput.text) !== -1
+                    text: "容器名称已存在！"
+                    color: "#e06c75"
+                    font.pixelSize: 11
+                }
 
-            // Feature Toggles
+                Label {
+                    visible: nameInput.text.length === 0
+                    text: "容器名称不能为空"
+                    color: "#e06c75"
+                    font.pixelSize: 11
+                }
+
+                Label {
+                    visible: nameInput.text.length > 0 && !/^[a-zA-Z0-9]/.test(nameInput.text)
+                    text: "名称必须以字母或数字开头"
+                    color: "#e06c75"
+                    font.pixelSize: 11
+                }
+            }
+            
+            Label { text: "存储配置"; font.bold: true; color: "#e06c75"; font.pixelSize: 12 }
+            UKUITextField { id: homeInput; Layout.fillWidth: true; placeholderText: "自定义 Home (可选)"; selectByMouse: true }
+            UKUITextField { id: volumeInput; Layout.fillWidth: true; placeholderText: "挂载卷 (宿主:容器)"; selectByMouse: true }
+
             Label { text: "功能选项"; font.bold: true; color: "#e06c75"; font.pixelSize: 12 }
             Flow {
                 Layout.fillWidth: true
@@ -198,11 +213,10 @@ Dialog {
                 }
             }
             
-            // Advanced Inputs
             Label { text: "高级参数"; font.bold: true; color: "#e06c75"; font.pixelSize: 12 }
-            TextField { id: platformInput; Layout.fillWidth: true; placeholderText: "架构 (例如: linux/arm64)"; placeholderTextColor: "#5c6370"; color: "white"; background: Rectangle { color: "#21252b"; border.color: parent.activeFocus ? "#61afef" : "#3e4451"; radius: 6 } selectByMouse: true }
-            TextField { id: packagesInput; Layout.fillWidth: true; placeholderText: "附加包 (空格分隔)"; placeholderTextColor: "#5c6370"; color: "white"; background: Rectangle { color: "#21252b"; border.color: parent.activeFocus ? "#61afef" : "#3e4451"; radius: 6 } selectByMouse: true }
-            TextField { id: flagsInput; Layout.fillWidth: true; placeholderText: "额外 Flags"; placeholderTextColor: "#5c6370"; color: "white"; background: Rectangle { color: "#21252b"; border.color: parent.activeFocus ? "#61afef" : "#3e4451"; radius: 6 } selectByMouse: true }
+            UKUITextField { id: platformInput; Layout.fillWidth: true; placeholderText: "架构 (例如: linux/arm64)"; selectByMouse: true }
+            UKUITextField { id: packagesInput; Layout.fillWidth: true; placeholderText: "附加包 (空格分隔)"; selectByMouse: true }
+            UKUITextField { id: flagsInput; Layout.fillWidth: true; placeholderText: "额外 Flags"; selectByMouse: true }
 
             Item { Layout.fillHeight: true }
         }

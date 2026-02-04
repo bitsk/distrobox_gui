@@ -15,6 +15,10 @@ int main(int argc, char *argv[]) {
     qmlRegisterType<DistroboxManager>("Distrobox", 1, 0, "DistroboxManager");
 
     QQmlApplicationEngine engine;
+    
+    // Add local import path for fallback modules (e.g. ukui-quick from extra/)
+    engine.addImportPath(QCoreApplication::applicationDirPath() + "/imports");
+    
     const QUrl url(QStringLiteral("qrc:/ui/main.qml"));
     
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,

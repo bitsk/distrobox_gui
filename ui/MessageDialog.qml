@@ -75,38 +75,16 @@ Dialog {
         spacing: 10
         background: Rectangle { color: "#2c313c"; radius: 8 }
         
-        Button {
+        UKUIButton {
             text: root.rejectText
             DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
             visible: root.rejectText !== ""
-            background: Rectangle {
-                color: "transparent"
-                border.color: "#3e4451"
-                radius: 6
-            }
-            contentItem: Text {
-                text: parent.text
-                color: "#abb2bf"
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-            }
         }
         
-        Button {
+        UKUIButton {
             id: acceptBtn
             text: root.acceptText
             DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
-            background: Rectangle {
-                color: parent.down ? Qt.darker(root.accentColor, 1.1) : root.accentColor
-                radius: 6
-            }
-            contentItem: Text {
-                text: parent.text
-                color: "white"
-                font.bold: true
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-            }
         }
     }
 }
